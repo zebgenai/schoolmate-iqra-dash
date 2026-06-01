@@ -34,30 +34,32 @@ type StatCardProps = {
   delta?: string; deltaUp?: boolean; tint?: "primary" | "success" | "warning" | "info" | "destructive";
 };
 
-const tints: Record<NonNullable<StatCardProps["tint"]>, string> = {
-  primary: "bg-primary/10 text-primary",
-  success: "bg-success/15 text-success",
-  warning: "bg-warning/20 text-[oklch(0.45_0.13_75)]",
-  info: "bg-info/15 text-info",
-  destructive: "bg-destructive/10 text-destructive",
+const tints: Record<NonNullable<StatCardProps["tint"]>, { icon: string; blob: string }> = {
+  primary: { icon: "bg-primary/10 text-primary", blob: "bg-primary/10" },
+  success: { icon: "bg-success/15 text-success", blob: "bg-success/10" },
+  warning: { icon: "bg-warning/25 text-[oklch(0.45_0.13_75)]", blob: "bg-warning/15" },
+  info: { icon: "bg-info/15 text-info", blob: "bg-info/10" },
+  destructive: { icon: "bg-destructive/10 text-destructive", blob: "bg-destructive/10" },
 };
 
 function StatCard({ label, value, icon: Icon, delta, deltaUp, tint = "primary" }: StatCardProps) {
+  const t = tints[tint];
   return (
-    <Card className="transition-all hover:shadow-md">
-      <CardContent className="p-5">
+    <Card className="relative overflow-hidden transition-all hover:shadow-glow hover:-translate-y-0.5 group">
+      <div className={`pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full blur-2xl opacity-60 transition-transform group-hover:scale-125 ${t.blob}`} />
+      <CardContent className="relative p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-            <p className="mt-2.5 text-[26px] font-semibold tracking-tight leading-none">{value}</p>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{label}</p>
+            <p className="mt-3 text-[28px] font-bold tracking-tight leading-none text-foreground">{value}</p>
             {delta && (
-              <div className={`mt-2.5 flex items-center gap-1 text-xs font-medium ${deltaUp ? "text-success" : "text-destructive"}`}>
+              <div className={`mt-3 inline-flex items-center gap-1 text-xs font-semibold ${deltaUp ? "text-success" : "text-destructive"}`}>
                 {deltaUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                 <span>{delta}</span>
               </div>
             )}
           </div>
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tints[tint]}`}>
+          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${t.icon} shadow-sm`}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
