@@ -23,6 +23,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {}
+    // Enable smooth transitions only after the first paint
+    const id = requestAnimationFrame(() => root.classList.add("theme-ready"));
+    return () => cancelAnimationFrame(id);
   }, [theme]);
 
   const setTheme = (t: Theme) => setThemeState(t);
