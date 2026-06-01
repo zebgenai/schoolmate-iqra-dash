@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { PageHeader } from "@/components/PageHeader";
+
 import {
   STATS, ATTENDANCE_WEEK, FEE_MONTHLY, RECENT_ADMISSIONS, FEE_DEFAULTERS,
   UPCOMING_EXAMS, formatPKR, SCHOOL,
