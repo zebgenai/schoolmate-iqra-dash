@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import {
-  Users, GraduationCap, UserCheck, Wallet, AlertCircle,
+  Users, UserCheck, Wallet, AlertCircle,
   CalendarDays, UserPlus, TrendingUp, TrendingDown, FileText,
   CalendarCheck, ArrowRight, ClipboardList,
 } from "lucide-react";
