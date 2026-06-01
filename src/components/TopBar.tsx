@@ -1,5 +1,4 @@
 import { Bell, Search, Moon, Sun, LogOut, User as UserIcon, Settings as SettingsIcon } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
@@ -15,15 +14,11 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { SCHOOL } from "@/lib/sample-data";
+import { useTheme } from "@/components/ThemeProvider";
 
 export function TopBar() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (dark) root.classList.add("dark");
-    else root.classList.remove("dark");
-  }, [dark]);
+  const { theme, toggle } = useTheme();
+  const dark = theme === "dark";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/70 px-4 backdrop-blur-xl md:px-6">
@@ -43,10 +38,10 @@ export function TopBar() {
         variant="ghost"
         size="icon"
         className="ml-auto md:ml-0"
-        onClick={() => setDark((d) => !d)}
+        onClick={toggle}
         aria-label="Toggle theme"
       >
-        {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        {dark ? <Sun className="h-4 w-4 transition-transform" /> : <Moon className="h-4 w-4 transition-transform" />}
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
