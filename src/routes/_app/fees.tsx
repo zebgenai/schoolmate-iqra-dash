@@ -146,8 +146,14 @@ function Fees() {
                         )}
                         <FeeReceipt student={s} />
                         <DialogFooter>
-                          <Button variant="outline">Close</Button>
-                          {!s.paid && <Button>Confirm Payment</Button>}
+                          <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
+                          {!s.paid && (
+                            <DialogClose asChild>
+                              <Button onClick={() => toast.success("Payment recorded", { description: `${formatPKR(s.amount)} collected from ${s.name}. Receipt is ready to print.` })}>
+                                Confirm Payment
+                              </Button>
+                            </DialogClose>
+                          )}
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
