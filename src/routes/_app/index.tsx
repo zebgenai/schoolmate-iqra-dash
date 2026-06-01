@@ -91,15 +91,23 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title={`Assalam-o-Alaikum, ${lastName}`}
-        description={`Here's a snapshot of ${SCHOOL.name} for today.`}
-        actions={
-          <Button asChild>
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/8 via-background to-[oklch(0.62_0.18_285)]/8 px-6 py-7 sm:px-8">
+        <div className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-[oklch(0.62_0.18_285)]/15 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">{new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <h1 className="text-3xl sm:text-[32px] font-bold tracking-tight leading-tight text-foreground">
+              Assalam-o-Alaikum,{" "}
+              <span className="bg-gradient-to-r from-primary to-[oklch(0.62_0.18_285)] bg-clip-text text-transparent">{lastName}</span>
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">Here's a snapshot of {SCHOOL.name} for today.</p>
+          </div>
+          <Button asChild size="lg" className="shadow-glow">
             <Link to="/students"><UserPlus className="mr-1.5 h-4 w-4" /> New Admission</Link>
           </Button>
-        }
-      />
+        </div>
+      </div>
 
       {/* Primary KPIs — 4 cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
