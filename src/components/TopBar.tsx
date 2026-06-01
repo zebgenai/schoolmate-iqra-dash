@@ -38,10 +38,10 @@ export function TopBar() {
         variant="ghost"
         size="icon"
         className="ml-auto md:ml-0"
-        onClick={() => setDark((d) => !d)}
+        onClick={toggle}
         aria-label="Toggle theme"
       >
-        {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        {dark ? <Sun className="h-4 w-4 transition-transform" /> : <Moon className="h-4 w-4 transition-transform" />}
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
