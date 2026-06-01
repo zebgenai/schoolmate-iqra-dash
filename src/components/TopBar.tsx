@@ -76,9 +76,13 @@ export function TopBar() {
       </DropdownMenu>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 rounded-full p-0.5 hover:bg-muted transition-colors">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">TM</AvatarFallback>
+          <button className="flex items-center gap-2.5 rounded-full p-0.5 pl-3 hover:bg-muted transition-colors">
+            <div className="hidden sm:flex flex-col items-end leading-tight">
+              <span className="text-xs font-semibold text-foreground">{SCHOOL.principal}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Principal</span>
+            </div>
+            <Avatar className="h-9 w-9 ring-2 ring-background shadow-md">
+              <AvatarFallback className="bg-gradient-to-br from-primary to-[oklch(0.62_0.18_285)] text-primary-foreground text-xs font-bold">TM</AvatarFallback>
             </Avatar>
           </button>
         </DropdownMenuTrigger>
