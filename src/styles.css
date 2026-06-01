@@ -181,24 +181,17 @@
     color: var(--color-foreground);
   }
 
-  /* Smooth color transitions when switching theme */
-  html.theme-ready *,
-  html.theme-ready *::before,
-  html.theme-ready *::after {
-    transition:
-      background-color 300ms ease,
-      border-color 300ms ease,
-      color 200ms ease,
-      fill 200ms ease,
-      stroke 200ms ease,
-      box-shadow 200ms ease;
-  }
-
-  /* Don't transition things that animate themselves */
-  html.theme-ready [data-radix-popper-content-wrapper] *,
-  html.theme-ready .toaster *,
-  html.theme-ready svg.recharts-surface * {
-    transition: none;
+  /* Smooth color transitions when switching theme — only on body/main surfaces */
+  html.theme-ready body,
+  html.theme-ready [data-sidebar],
+  html.theme-ready header,
+  html.theme-ready main,
+  html.theme-ready aside,
+  html.theme-ready .bg-card,
+  html.theme-ready .bg-background,
+  html.theme-ready .bg-popover,
+  html.theme-ready .bg-muted {
+    transition: background-color 280ms ease, border-color 280ms ease, color 200ms ease;
   }
 
   /* Pretty scrollbars everywhere */
