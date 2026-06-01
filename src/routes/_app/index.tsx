@@ -89,6 +89,10 @@ const quickActions = [
 function Dashboard() {
   const lastName = SCHOOL.principal.split(" ").slice(-1)[0];
   const attendanceRate = ((STATS.presentToday / (STATS.presentToday + STATS.absentToday)) * 100).toFixed(1);
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long" }));
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -97,7 +101,7 @@ function Dashboard() {
         <div className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-[oklch(0.62_0.18_285)]/15 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">{new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 min-h-[1rem]">{today}</p>
             <h1 className="text-3xl sm:text-[32px] font-bold tracking-tight leading-tight text-foreground">
               Assalam-o-Alaikum,{" "}
               <span className="bg-gradient-to-r from-primary to-[oklch(0.62_0.18_285)] bg-clip-text text-transparent">{lastName}</span>
