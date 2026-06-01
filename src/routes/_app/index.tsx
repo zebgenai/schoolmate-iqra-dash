@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import {
-  Users, GraduationCap, UserCheck, UserX, Wallet, AlertCircle,
+  Users, GraduationCap, UserCheck, Wallet, AlertCircle,
   CalendarDays, UserPlus, TrendingUp, TrendingDown, FileText,
-  CalendarCheck, Plus, ClipboardList,
+  CalendarCheck, ArrowRight, ClipboardList,
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -44,20 +44,20 @@ const tints: Record<NonNullable<StatCardProps["tint"]>, string> = {
 
 function StatCard({ label, value, icon: Icon, delta, deltaUp, tint = "primary" }: StatCardProps) {
   return (
-    <Card className="transition-all hover:shadow-md hover:-translate-y-0.5">
+    <Card className="transition-all hover:shadow-md">
       <CardContent className="p-5">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+            <p className="mt-2.5 text-[26px] font-semibold tracking-tight leading-none">{value}</p>
             {delta && (
-              <div className={`mt-1.5 flex items-center gap-1 text-xs ${deltaUp ? "text-success" : "text-destructive"}`}>
+              <div className={`mt-2.5 flex items-center gap-1 text-xs font-medium ${deltaUp ? "text-success" : "text-destructive"}`}>
                 {deltaUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                 <span>{delta}</span>
               </div>
             )}
           </div>
-          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${tints[tint]}`}>
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tints[tint]}`}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
@@ -66,61 +66,67 @@ function StatCard({ label, value, icon: Icon, delta, deltaUp, tint = "primary" }
   );
 }
 
+function MiniStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "warn" | "success" }) {
+  const toneCls = tone === "warn" ? "text-destructive" : tone === "success" ? "text-success" : "text-foreground";
+  return (
+    <div className="flex flex-col px-5 py-4 first:rounded-l-xl last:rounded-r-xl">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className={`mt-1 text-lg font-semibold ${toneCls}`}>{value}</span>
+    </div>
+  );
+}
+
 const quickActions = [
   { label: "Add Student", icon: UserPlus, to: "/students" },
   { label: "Mark Attendance", icon: CalendarCheck, to: "/attendance" },
   { label: "Collect Fee", icon: Wallet, to: "/fees" },
-  { label: "Create Exam", icon: GraduationCap, to: "/exams" },
   { label: "Generate Report", icon: FileText, to: "/reports" },
 ];
 
 function Dashboard() {
+  const lastName = SCHOOL.principal.split(" ").slice(-1)[0];
+  const attendanceRate = ((STATS.presentToday / (STATS.presentToday + STATS.absentToday)) * 100).toFixed(1);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
-        title="Dashboard"
-        description={`Welcome back, ${SCHOOL.principal.split(" ").slice(-1)[0]}. Here's what's happening today.`}
+        title={`Assalam-o-Alaikum, ${lastName}`}
+        description={`Here's a snapshot of ${SCHOOL.name} for today.`}
         actions={
           <Button asChild>
-            <Link to="/students"><Plus className="mr-1 h-4 w-4" /> New Admission</Link>
+            <Link to="/students"><UserPlus className="mr-1.5 h-4 w-4" /> New Admission</Link>
           </Button>
         }
       />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Primary KPIs — 4 cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Students" value={STATS.totalStudents.toLocaleString()} icon={Users} delta="+23 this month" deltaUp tint="primary" />
-        <StatCard label="Total Teachers" value={STATS.totalTeachers.toString()} icon={GraduationCap} tint="info" />
-        <StatCard label="Present Today" value={STATS.presentToday.toString()} icon={UserCheck} delta="92.8% attendance" deltaUp tint="success" />
-        <StatCard label="Absent Today" value={STATS.absentToday.toString()} icon={UserX} delta="-7 vs yesterday" deltaUp tint="destructive" />
-        <StatCard label="Fees Collected (Aug)" value={formatPKR(STATS.feesCollected)} icon={Wallet} delta="+8% MoM" deltaUp tint="success" />
-        <StatCard label="Pending Fees" value={formatPKR(STATS.pendingFees)} icon={AlertCircle} delta="34 students" tint="warning" />
-        <StatCard label="Upcoming Exams" value={STATS.upcomingExams.toString()} icon={CalendarDays} tint="info" />
-        <StatCard label="Recent Admissions" value={STATS.recentAdmissions.toString()} icon={UserPlus} delta="last 30 days" deltaUp tint="primary" />
+        <StatCard label="Present Today" value={`${attendanceRate}%`} icon={UserCheck} delta={`${STATS.presentToday} of ${STATS.presentToday + STATS.absentToday}`} deltaUp tint="success" />
+        <StatCard label="Fees Collected" value={formatPKR(STATS.feesCollected)} icon={Wallet} delta="+8% vs last month" deltaUp tint="info" />
+        <StatCard label="Pending Dues" value={formatPKR(STATS.pendingFees)} icon={AlertCircle} delta="34 students" tint="warning" />
       </div>
 
-      {/* Quick actions */}
+      {/* Secondary stats — compact strip */}
       <Card>
-        <CardContent className="p-4 flex flex-wrap gap-2">
-          <span className="text-sm text-muted-foreground self-center mr-2 px-2">Quick actions:</span>
-          {quickActions.map((a) => (
-            <Button key={a.label} asChild variant="outline" size="sm" className="gap-1.5">
-              <Link to={a.to}><a.icon className="h-4 w-4" /> {a.label}</Link>
-            </Button>
-          ))}
+        <CardContent className="p-0 grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
+          <MiniStat label="Teachers" value={STATS.totalTeachers.toString()} />
+          <MiniStat label="New Admissions" value={STATS.recentAdmissions.toString()} tone="success" />
+          <MiniStat label="Absent Today" value={STATS.absentToday.toString()} tone="warn" />
+          <MiniStat label="Upcoming Exams" value={STATS.upcomingExams.toString()} />
         </CardContent>
       </Card>
 
       {/* Charts */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Weekly Attendance Summary</CardTitle>
-            <CardDescription>Present vs absent — this week</CardDescription>
+      <div className="grid lg:grid-cols-5 gap-4">
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Attendance this week</CardTitle>
+            <CardDescription>Present vs absent students per day</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={ATTENDANCE_WEEK} barGap={4}>
+              <BarChart data={ATTENDANCE_WEEK} barGap={4} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="day" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
@@ -128,25 +134,26 @@ function Dashboard() {
                   contentStyle={{
                     background: "var(--color-popover)",
                     border: "1px solid var(--color-border)",
-                    borderRadius: 8,
+                    borderRadius: 10,
                     fontSize: 12,
+                    boxShadow: "var(--shadow-card)",
                   }}
                 />
-                <Bar dataKey="present" fill="var(--color-chart-2)" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="absent" fill="var(--color-chart-5)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="present" name="Present" fill="var(--color-chart-2)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="absent" name="Absent" fill="var(--color-chart-5)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Monthly Fee Collection</CardTitle>
-            <CardDescription>Trend across the academic session</CardDescription>
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Fee collection trend</CardTitle>
+            <CardDescription>Monthly totals this session</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={FEE_MONTHLY}>
+              <LineChart data={FEE_MONTHLY} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
@@ -154,12 +161,13 @@ function Dashboard() {
                   contentStyle={{
                     background: "var(--color-popover)",
                     border: "1px solid var(--color-border)",
-                    borderRadius: 8,
+                    borderRadius: 10,
                     fontSize: 12,
+                    boxShadow: "var(--shadow-card)",
                   }}
                   formatter={(v: number) => formatPKR(v)}
                 />
-                <Line type="monotone" dataKey="amount" stroke="var(--color-chart-1)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="amount" stroke="var(--color-chart-1)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -169,12 +177,14 @@ function Dashboard() {
       {/* Tables row */}
       <div className="grid lg:grid-cols-5 gap-4">
         <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="text-base">Recent Admissions</CardTitle>
-              <CardDescription>Newly enrolled students</CardDescription>
+              <CardTitle className="text-base">Recent admissions</CardTitle>
+              <CardDescription>Latest students enrolled</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" asChild><Link to="/admissions">View all</Link></Button>
+            <Button variant="ghost" size="sm" asChild className="text-xs">
+              <Link to="/admissions">View all <ArrowRight className="ml-1 h-3 w-3" /></Link>
+            </Button>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -182,12 +192,12 @@ function Dashboard() {
                 <TableRow>
                   <TableHead>Student</TableHead>
                   <TableHead>Class</TableHead>
-                  <TableHead>Adm. No</TableHead>
-                  <TableHead className="text-right">Fee</TableHead>
+                  <TableHead>Admission No</TableHead>
+                  <TableHead className="text-right">Monthly Fee</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {RECENT_ADMISSIONS.map((s) => (
+                {RECENT_ADMISSIONS.slice(0, 5).map((s) => (
                   <TableRow key={s.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -198,12 +208,12 @@ function Dashboard() {
                         </Avatar>
                         <div>
                           <p className="text-sm font-medium">{s.name}</p>
-                          <p className="text-xs text-muted-foreground">{s.fatherName}</p>
+                          <p className="text-xs text-muted-foreground">s/o {s.fatherName}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="secondary">Class {s.class}–{s.section}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{s.admissionNo}</TableCell>
+                    <TableCell><Badge variant="secondary" className="font-normal">Class {s.class}–{s.section}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground font-mono">{s.admissionNo}</TableCell>
                     <TableCell className="text-right text-sm font-medium">{formatPKR(s.monthlyFee)}</TableCell>
                   </TableRow>
                 ))}
@@ -213,16 +223,18 @@ function Dashboard() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="text-base">Fee Defaulters</CardTitle>
+              <CardTitle className="text-base">Fee defaulters</CardTitle>
               <CardDescription>Pending dues this month</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" asChild><Link to="/fees">All</Link></Button>
+            <Button variant="ghost" size="sm" asChild className="text-xs">
+              <Link to="/fees">All <ArrowRight className="ml-1 h-3 w-3" /></Link>
+            </Button>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {FEE_DEFAULTERS.map((s) => (
+              {FEE_DEFAULTERS.slice(0, 5).map((s) => (
                 <div key={s.id} className="flex items-center justify-between gap-3 px-6 py-3 hover:bg-muted/40 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-8 w-8">
@@ -232,7 +244,7 @@ function Dashboard() {
                     </Avatar>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">Class {s.class}–{s.section} · {s.months} mo</p>
+                      <p className="text-xs text-muted-foreground">Class {s.class}–{s.section} · {s.months} mo overdue</p>
                     </div>
                   </div>
                   <p className="text-sm font-semibold text-destructive whitespace-nowrap">{formatPKR(s.pending)}</p>
@@ -243,22 +255,42 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Upcoming exams */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Upcoming Exams</CardTitle>
-          <CardDescription>Scheduled across all classes</CardDescription>
-        </CardHeader>
-        <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {UPCOMING_EXAMS.map((e, i) => (
-            <div key={i} className="rounded-xl border border-border p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors">
-              <p className="text-sm font-semibold">{e.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Class {e.class} · {e.subjects} subjects</p>
-              <p className="mt-2 text-xs flex items-center gap-1 text-primary"><CalendarDays className="h-3 w-3" /> {e.date}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Upcoming exams + Quick actions */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-4 w-4 text-muted-foreground" /> Upcoming exams</CardTitle>
+            <CardDescription>Scheduled across classes</CardDescription>
+          </CardHeader>
+          <CardContent className="grid sm:grid-cols-2 gap-3">
+            {UPCOMING_EXAMS.map((e, i) => (
+              <div key={i} className="rounded-xl border border-border bg-muted/20 p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors">
+                <p className="text-sm font-semibold">{e.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Class {e.class} · {e.subjects} subjects</p>
+                <p className="mt-3 text-xs flex items-center gap-1 text-primary font-medium"><CalendarDays className="h-3 w-3" /> {e.date}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Quick actions</CardTitle>
+            <CardDescription>Common daily tasks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {quickActions.map((a) => (
+              <Button key={a.label} asChild variant="outline" className="w-full justify-start gap-2 h-10">
+                <Link to={a.to}>
+                  <a.icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex-1 text-left">{a.label}</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </Link>
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
