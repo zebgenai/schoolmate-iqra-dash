@@ -77,14 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "IQRA Smart School — School Management ERP" },
+      { name: "description", content: "Clean school ERP for private schools in Pakistan — students, attendance, fees and results in one dashboard." },
+      { property: "og:title", content: "IQRA Smart School ERP" },
+      { property: "og:description", content: "A modern digital replacement for manual school registers." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
