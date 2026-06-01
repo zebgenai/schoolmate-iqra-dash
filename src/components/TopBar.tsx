@@ -26,17 +26,17 @@ export function TopBar() {
   }, [dark]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/70 px-4 backdrop-blur-xl md:px-6">
       <SidebarTrigger className="-ml-1" />
-      <div className="hidden md:block">
-        <h1 className="text-sm font-semibold text-foreground">{SCHOOL.name}</h1>
-        <p className="text-[11px] text-muted-foreground">Session {SCHOOL.session}</p>
+      <div className="hidden md:flex flex-col pr-4 mr-2 border-r border-border/70">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Current Session</span>
+        <span className="text-sm font-semibold text-foreground">2025 — 2026</span>
       </div>
       <div className="relative ml-auto hidden flex-1 max-w-md md:block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search students, teachers, classes…"
-          className="h-9 pl-9 bg-muted/40 border-transparent focus-visible:bg-background"
+          className="h-10 pl-11 rounded-full bg-muted/60 border-transparent focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/20"
         />
       </div>
       <Button
@@ -76,9 +76,13 @@ export function TopBar() {
       </DropdownMenu>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 rounded-full p-0.5 hover:bg-muted transition-colors">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">TM</AvatarFallback>
+          <button className="flex items-center gap-2.5 rounded-full p-0.5 pl-3 hover:bg-muted transition-colors">
+            <div className="hidden sm:flex flex-col items-end leading-tight">
+              <span className="text-xs font-semibold text-foreground">{SCHOOL.principal}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Principal</span>
+            </div>
+            <Avatar className="h-9 w-9 ring-2 ring-background shadow-md">
+              <AvatarFallback className="bg-gradient-to-br from-primary to-[oklch(0.62_0.18_285)] text-primary-foreground text-xs font-bold">TM</AvatarFallback>
             </Avatar>
           </button>
         </DropdownMenuTrigger>
