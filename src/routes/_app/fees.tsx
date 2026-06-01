@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Wallet, AlertCircle, TrendingUp, Receipt, Printer, Search } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose,
 } from "@/components/ui/dialog";
 import { STUDENTS, STATS, formatPKR, SCHOOL } from "@/lib/sample-data";
 
@@ -145,8 +146,14 @@ function Fees() {
                         )}
                         <FeeReceipt student={s} />
                         <DialogFooter>
-                          <Button variant="outline">Close</Button>
-                          {!s.paid && <Button>Confirm Payment</Button>}
+                          <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
+                          {!s.paid && (
+                            <DialogClose asChild>
+                              <Button onClick={() => toast.success("Payment recorded", { description: `${formatPKR(s.amount)} collected from ${s.name}. Receipt is ready to print.` })}>
+                                Confirm Payment
+                              </Button>
+                            </DialogClose>
+                          )}
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>

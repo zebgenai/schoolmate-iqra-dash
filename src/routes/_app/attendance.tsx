@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { CalendarCheck, Save, UserCheck, UserX, Clock } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,11 @@ function Attendance() {
       <PageHeader
         title="Attendance"
         description="Mark daily attendance for each class and section."
-        actions={<Button><Save className="mr-1.5 h-4 w-4" /> Save Attendance</Button>}
+        actions={
+          <Button onClick={() => toast.success("Attendance saved", { description: `${counts.P} present, ${counts.A} absent, ${counts.L} on leave.` })}>
+            <Save className="mr-1.5 h-4 w-4" /> Save Attendance
+          </Button>
+        }
       />
 
       <Card>
