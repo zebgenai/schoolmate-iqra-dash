@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Printer, GraduationCap, CalendarDays } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, GraduationCap, CalendarDays, Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose,
 } from "@/components/ui/dialog";
-import { STUDENTS, CLASSES, SUBJECTS, UPCOMING_EXAMS, SCHOOL } from "@/lib/sample-data";
+import { supabase } from "@/integrations/supabase/client";
+import { useSchoolProfile } from "@/hooks/useSession";
 
 export const Route = createFileRoute("/_app/exams")({
   head: () => ({ meta: [{ title: "Exams & Results — IQRA Smart School ERP" }] }),
@@ -23,167 +27,184 @@ const gradeFor = (pct: number) =>
   pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : pct >= 60 ? "C" : pct >= 50 ? "D" : "F";
 
 function Exams() {
-  const studentsForClass = STUDENTS.slice(0, 10);
-  const [marks, setMarks] = useState<Record<string, number>>(() =>
-    Object.fromEntries(studentsForClass.map((s, i) => [s.id, 60 + ((i * 7) % 38)]))
-  );
-  const total = 100;
+  const { profile } = useSchoolProfile();
+  const schoolId = profile?.schoolId ?? null;
+  const qc = useQueryClient();
 
-  const sampleResult = studentsForClass[0];
-  const sampleSubjects = SUBJECTS.map((sub, i) => {
-    const obtained = 60 + ((i * 9 + 3) % 38);
-    return { sub, obtained, total: 100 };
+  const [createOpen, setCreateOpen] = useState(false);
+  const [examName, setExamName] = useState("");
+  const [examClass, setExamClass] = useState("");
+  const [examStart, setExamStart] = useState("");
+  const [examEnd, setExamEnd] = useState("");
+
+  const [selectedExam, setSelectedExam] = useState<string>("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const [total, setTotal] = useState(100);
+  const [marks, setMarks] = useState<Record<string, number>>({});
+
+  const classes = useQuery({
+    queryKey: ["classes", schoolId], enabled: !!schoolId,
+    queryFn: async () => (await supabase.from("classes").select("id, name").order("grade_level")).data ?? [],
   });
-  const totalObtained = sampleSubjects.reduce((a, s) => a + s.obtained, 0);
-  const totalMax = sampleSubjects.length * 100;
-  const pct = Math.round((totalObtained / totalMax) * 100);
+  const subjects = useQuery({
+    queryKey: ["subjects", schoolId], enabled: !!schoolId,
+    queryFn: async () => (await supabase.from("subjects").select("id, name").order("name")).data ?? [],
+  });
+  const exams = useQuery({
+    queryKey: ["exams", schoolId], enabled: !!schoolId,
+    queryFn: async () => (await supabase.from("exams").select("id, name, term, start_date, end_date, class_id, classes(name)").order("start_date", { ascending: false })).data ?? [],
+  });
+
+  const currentExam = (exams.data ?? []).find((e: any) => e.id === selectedExam);
+  const examClassId = currentExam?.class_id ?? null;
+
+  const students = useQuery({
+    queryKey: ["exam-students", schoolId, examClassId], enabled: !!schoolId && !!examClassId,
+    queryFn: async () => (await supabase.from("students").select("id, name, admission_no").eq("class_id", examClassId!).eq("status", "active").order("name")).data ?? [],
+  });
+
+  const existing = useQuery({
+    queryKey: ["marks", selectedExam, selectedSubject], enabled: !!selectedExam && !!selectedSubject,
+    queryFn: async () => (await supabase.from("marks").select("student_id, obtained, total").eq("exam_id", selectedExam).eq("subject_id", selectedSubject)).data ?? [],
+  });
+
+  useEffect(() => {
+    const m: Record<string, number> = {};
+    (students.data ?? []).forEach((s: any) => { m[s.id] = 0; });
+    (existing.data ?? []).forEach((r: any) => { m[r.student_id] = Number(r.obtained); });
+    setMarks(m);
+    if (existing.data && existing.data[0]) setTotal(Number((existing.data[0] as any).total));
+  }, [students.data, existing.data]);
+
+  const createExam = useMutation({
+    mutationFn: async () => {
+      if (!schoolId || !examName || !examClass) throw new Error("Name and class are required");
+      const { error } = await supabase.from("exams").insert({
+        school_id: schoolId, name: examName, class_id: examClass,
+        start_date: examStart || null, end_date: examEnd || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["exams", schoolId] });
+      setCreateOpen(false); setExamName(""); setExamClass(""); setExamStart(""); setExamEnd("");
+      toast.success("Exam created");
+    },
+    onError: (e: any) => toast.error("Could not create exam", { description: e.message }),
+  });
+
+  const saveMarks = useMutation({
+    mutationFn: async () => {
+      if (!schoolId || !selectedExam || !selectedSubject) throw new Error("Pick exam and subject");
+      const rows = Object.entries(marks).map(([student_id, obtained]) => {
+        const pct = total > 0 ? Math.round((obtained / total) * 100) : 0;
+        return { school_id: schoolId, exam_id: selectedExam, student_id, subject_id: selectedSubject, obtained, total, grade: gradeFor(pct) };
+      });
+      const { error } = await supabase.from("marks").upsert(rows, { onConflict: "exam_id,student_id,subject_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["marks", selectedExam, selectedSubject] });
+      toast.success("Marks saved");
+    },
+    onError: (e: any) => toast.error("Save failed", { description: e.message }),
+  });
+
+  const list = students.data ?? [];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Exams & Results" description="Schedule exams, enter marks and generate result cards." actions={
-        <Button><Plus className="mr-1.5 h-4 w-4" /> Create Exam</Button>
+      <PageHeader title="Exams & Results" description="Schedule exams and enter marks for each subject." actions={
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild><Button><Plus className="mr-1.5 h-4 w-4" /> Create Exam</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Create exam</DialogTitle><DialogDescription>Set the basic details. You can enter marks afterward.</DialogDescription></DialogHeader>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 sm:col-span-2"><Label>Name</Label><Input value={examName} onChange={(e) => setExamName(e.target.value)} placeholder="Mid-Term, Final-Term…" /></div>
+              <div className="space-y-1.5">
+                <Label>Class</Label>
+                <Select value={examClass} onValueChange={setExamClass}>
+                  <SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger>
+                  <SelectContent>{(classes.data ?? []).map((c: any) => <SelectItem key={c.id} value={c.id}>Class {c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5"><Label>Start</Label><Input type="date" value={examStart} onChange={(e) => setExamStart(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>End</Label><Input type="date" value={examEnd} onChange={(e) => setExamEnd(e.target.value)} /></div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+              <Button onClick={() => createExam.mutate()} disabled={createExam.isPending}>
+                {createExam.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save exam
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       } />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Upcoming Exams</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Scheduled Exams</CardTitle></CardHeader>
         <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {UPCOMING_EXAMS.map((e, i) => (
-            <div key={i} className="rounded-xl border border-border p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors">
+          {(exams.data ?? []).length === 0 ? (
+            <div className="sm:col-span-2 lg:col-span-4"><EmptyState icon={GraduationCap} title="No exams scheduled" description="Create your first exam to start recording marks." /></div>
+          ) : (exams.data ?? []).map((e: any) => (
+            <button key={e.id} onClick={() => setSelectedExam(e.id)}
+              className={`text-left rounded-xl border p-4 transition-colors ${selectedExam === e.id ? "border-primary bg-accent/40" : "border-border hover:border-primary/40 hover:bg-accent/30"}`}>
               <p className="text-sm font-semibold">{e.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Class {e.class} · {e.subjects} subjects</p>
-              <p className="mt-2 text-xs flex items-center gap-1 text-primary"><CalendarDays className="h-3 w-3" /> {e.date}</p>
-            </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Class {e.classes?.name ?? "—"}</p>
+              <p className="mt-2 text-xs flex items-center gap-1 text-primary"><CalendarDays className="h-3 w-3" /> {e.start_date ?? "—"}</p>
+            </button>
           ))}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Marks Entry — Mid-Term</CardTitle>
-          <CardDescription>Class 5 · Mathematics · Out of 100</CardDescription>
+          <CardTitle className="text-base">Marks Entry</CardTitle>
+          <CardDescription>Pick an exam above, choose a subject, and enter obtained marks.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1.5"><Label>Class</Label>
-              <Select defaultValue="5"><SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CLASSES.map(c => <SelectItem key={c} value={c}>Class {c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
             <div className="space-y-1.5"><Label>Subject</Label>
-              <Select defaultValue="Mathematics"><SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedExam}>
+                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                <SelectContent>{(subjects.data ?? []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5"><Label>Total Marks</Label><Input type="number" defaultValue={100} /></div>
+            <div className="space-y-1.5"><Label>Total Marks</Label><Input type="number" value={total} onChange={(e) => setTotal(Number(e.target.value) || 100)} /></div>
+            <div className="flex items-end">
+              <Button className="w-full" onClick={() => saveMarks.mutate()} disabled={!selectedExam || !selectedSubject || list.length === 0 || saveMarks.isPending}>
+                {saveMarks.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />} Save Marks
+              </Button>
+            </div>
           </div>
-          <div className="rounded-xl border border-border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead className="w-32">Obtained</TableHead>
-                  <TableHead className="w-24">%</TableHead>
-                  <TableHead className="w-20">Grade</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {studentsForClass.map((s) => {
-                  const m = marks[s.id];
-                  const p = Math.round((m / total) * 100);
-                  return (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <p className="text-sm font-medium">{s.name}</p>
-                        <p className="text-xs text-muted-foreground">{s.admissionNo}</p>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={m}
-                          onChange={(e) => setMarks((mm) => ({ ...mm, [s.id]: Math.min(total, Math.max(0, Number(e.target.value) || 0)) }))}
-                          className="h-9 w-24"
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm">{p}%</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={p >= 80 ? "bg-success/15 text-success" : p < 50 ? "bg-destructive/10 text-destructive" : ""}>
-                          {gradeFor(p)}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline">Cancel</Button>
-            <Button>Save Marks</Button>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2"><GraduationCap className="h-4 w-4" /> Result Card Preview</CardTitle>
-            <CardDescription>Mid-Term · {sampleResult.name}</CardDescription>
-          </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm"><Printer className="mr-1.5 h-4 w-4" /> Print Result</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>Print preview</DialogTitle><DialogDescription>Ready to send to printer.</DialogDescription></DialogHeader>
-              <p className="text-sm text-muted-foreground">In a connected build, this would open the browser print dialog.</p>
-              <DialogFooter><Button>OK</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-xl border border-border p-6 space-y-5">
-            <div className="flex items-start justify-between border-b border-border pb-4">
-              <div>
-                <p className="text-base font-semibold">{SCHOOL.name}</p>
-                <p className="text-xs text-muted-foreground">{SCHOOL.address}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Result Card</p>
-                <p className="text-xs">Mid-Term · {SCHOOL.session}</p>
-              </div>
+          {!selectedExam ? (
+            <EmptyState icon={GraduationCap} title="Select an exam" description="Pick an exam card above to start entering marks." />
+          ) : !selectedSubject ? (
+            <EmptyState icon={GraduationCap} title="Select a subject" />
+          ) : list.length === 0 ? (
+            <EmptyState icon={GraduationCap} title="No students in this class" />
+          ) : (
+            <div className="rounded-xl border border-border overflow-x-auto">
+              <Table>
+                <TableHeader><TableRow><TableHead>Student</TableHead><TableHead className="w-32">Obtained</TableHead><TableHead className="w-24">%</TableHead><TableHead className="w-20">Grade</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {list.map((s: any) => {
+                    const m = marks[s.id] ?? 0;
+                    const p = total > 0 ? Math.round((m / total) * 100) : 0;
+                    return (
+                      <TableRow key={s.id}>
+                        <TableCell><p className="text-sm font-medium">{s.name}</p><p className="text-xs text-muted-foreground">{s.admission_no}</p></TableCell>
+                        <TableCell><Input type="number" value={m} onChange={(e) => setMarks((mm) => ({ ...mm, [s.id]: Math.min(total, Math.max(0, Number(e.target.value) || 0)) }))} className="h-9 w-24" /></TableCell>
+                        <TableCell className="text-sm">{p}%</TableCell>
+                        <TableCell><Badge variant="secondary" className={p >= 80 ? "bg-success/15 text-success" : p < 50 ? "bg-destructive/10 text-destructive" : ""}>{gradeFor(p)}</Badge></TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <div><p className="text-xs text-muted-foreground">Student</p><p className="font-medium">{sampleResult.name}</p></div>
-              <div><p className="text-xs text-muted-foreground">Father</p><p className="font-medium">{sampleResult.fatherName}</p></div>
-              <div><p className="text-xs text-muted-foreground">Class</p><p className="font-medium">Class {sampleResult.class}–{sampleResult.section}</p></div>
-              <div><p className="text-xs text-muted-foreground">Adm. No</p><p className="font-medium">{sampleResult.admissionNo}</p></div>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow><TableHead>Subject</TableHead><TableHead className="text-right">Obtained</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Grade</TableHead></TableRow>
-              </TableHeader>
-              <TableBody>
-                {sampleSubjects.map((s) => {
-                  const p = Math.round((s.obtained / s.total) * 100);
-                  return (
-                    <TableRow key={s.sub}>
-                      <TableCell className="text-sm">{s.sub}</TableCell>
-                      <TableCell className="text-right text-sm">{s.obtained}</TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{s.total}</TableCell>
-                      <TableCell className="text-right text-sm font-medium">{gradeFor(p)}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            <div className="grid grid-cols-3 gap-4 rounded-lg bg-muted/40 p-4 text-center">
-              <div><p className="text-xs text-muted-foreground">Total</p><p className="font-semibold">{totalObtained} / {totalMax}</p></div>
-              <div><p className="text-xs text-muted-foreground">Percentage</p><p className="font-semibold">{pct}%</p></div>
-              <div><p className="text-xs text-muted-foreground">Grade</p><p className="font-semibold text-primary">{gradeFor(pct)}</p></div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
