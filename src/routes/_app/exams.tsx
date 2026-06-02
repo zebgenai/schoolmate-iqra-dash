@@ -60,7 +60,7 @@ function Exams() {
 
   const students = useQuery({
     queryKey: ["exam-students", schoolId, examClassId], enabled: !!schoolId && !!examClassId,
-    queryFn: async () => (await supabase.from("students").select("id, name, admission_no").eq("class_id", examClassId).eq("status", "active").order("name")).data ?? [],
+    queryFn: async () => (await supabase.from("students").select("id, name, admission_no").eq("class_id", examClassId!).eq("status", "active").order("name")).data ?? [],
   });
 
   const existing = useQuery({
