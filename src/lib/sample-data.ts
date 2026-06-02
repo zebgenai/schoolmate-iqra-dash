@@ -1,9 +1,9 @@
 export const SCHOOL = {
   name: "IQRA Smart School",
-  address: "Plot 14, Gulberg III, Lahore, Pakistan",
-  phone: "+92 42 1234 5678",
+  address: "Main Campus Road, Sector G, Pakistan",
+  phone: "+92 51 1234 5678",
   email: "info@iqrasmartschool.edu.pk",
-  principal: "Mr. Tariq Mehmood",
+  principal: "Atif Zeb",
   session: "2025–2026",
 };
 
@@ -58,7 +58,7 @@ export const STUDENTS: Student[] = Array.from({ length: 28 }, (_, i) => {
     class: pick(CLASSES, i + 2),
     section: pick(SECTIONS, i),
     monthlyFee: 2500 + (i % 6) * 500,
-    address: `House ${i + 12}, Street ${i + 3}, Lahore`,
+    address: `House ${i + 12}, Street ${i + 3}, Pakistan`,
     status: i % 11 === 0 ? "Inactive" : "Active",
   };
 });

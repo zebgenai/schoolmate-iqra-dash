@@ -77,7 +77,7 @@ export function TopBar() {
               <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Principal</span>
             </div>
             <Avatar className="h-9 w-9 ring-2 ring-background shadow-md">
-              <AvatarFallback className="bg-gradient-to-br from-primary to-[oklch(0.62_0.18_285)] text-primary-foreground text-xs font-bold">TM</AvatarFallback>
+              <AvatarFallback className="bg-gradient-to-br from-primary to-[oklch(0.62_0.18_285)] text-primary-foreground text-xs font-bold">AZ</AvatarFallback>
             </Avatar>
           </button>
         </DropdownMenuTrigger>
