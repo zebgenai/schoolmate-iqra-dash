@@ -1,81 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Users, UserCheck, Wallet, AlertCircle,
-  CalendarDays, UserPlus, TrendingUp, TrendingDown, FileText,
-  CalendarCheck, ArrowRight, ClipboardList,
+  Users, UserCheck, Wallet, AlertCircle, UserPlus,
+  TrendingUp, FileText, CalendarCheck, ArrowRight, ClipboardList,
 } from "lucide-react";
-import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-import {
-  STATS, ATTENDANCE_WEEK, FEE_MONTHLY, RECENT_ADMISSIONS, FEE_DEFAULTERS,
-  UPCOMING_EXAMS, formatPKR, SCHOOL,
-} from "@/lib/sample-data";
+import { supabase } from "@/integrations/supabase/client";
+import { useSchoolProfile } from "@/hooks/useSession";
+import { formatPKR } from "@/lib/sample-data";
 
 export const Route = createFileRoute("/_app/")({
-  head: () => ({
-    meta: [
-      { title: `Dashboard — ${SCHOOL.name} ERP` },
-      { name: "description", content: "Live overview of students, attendance, fees and exams at IQRA Smart School." },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Dashboard — IQRA Smart School ERP" }] }),
   component: Dashboard,
 });
 
-type StatCardProps = {
-  label: string; value: string; icon: React.ElementType;
-  delta?: string; deltaUp?: boolean; tint?: "primary" | "success" | "warning" | "info" | "destructive";
-};
-
-const tints: Record<NonNullable<StatCardProps["tint"]>, { icon: string; blob: string }> = {
-  primary: { icon: "bg-primary/10 text-primary", blob: "bg-primary/10" },
-  success: { icon: "bg-success/15 text-success", blob: "bg-success/10" },
-  warning: { icon: "bg-warning/25 text-[oklch(0.45_0.13_75)]", blob: "bg-warning/15" },
-  info: { icon: "bg-info/15 text-info", blob: "bg-info/10" },
-  destructive: { icon: "bg-destructive/10 text-destructive", blob: "bg-destructive/10" },
-};
-
-function StatCard({ label, value, icon: Icon, delta, deltaUp, tint = "primary" }: StatCardProps) {
-  const t = tints[tint];
+function StatCard({ label, value, icon: Icon, tint = "primary" }: { label: string; value: string; icon: any; tint?: "primary" | "success" | "warning" | "info" | "destructive" }) {
+  const tints: Record<string, string> = {
+    primary: "bg-primary/10 text-primary",
+    success: "bg-success/15 text-success",
+    warning: "bg-warning/25 text-[oklch(0.45_0.13_75)]",
+    info: "bg-info/15 text-info",
+    destructive: "bg-destructive/10 text-destructive",
+  };
   return (
-    <Card className="relative overflow-hidden transition-all hover:shadow-glow hover:-translate-y-0.5 group">
-      <div className={`pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full blur-2xl opacity-60 transition-transform group-hover:scale-125 ${t.blob}`} />
-      <CardContent className="relative p-5">
+    <Card className="relative overflow-hidden transition-all hover:shadow-glow hover:-translate-y-0.5">
+      <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{label}</p>
             <p className="mt-3 text-[28px] font-bold tracking-tight leading-none text-foreground">{value}</p>
-            {delta && (
-              <div className={`mt-3 inline-flex items-center gap-1 text-xs font-semibold ${deltaUp ? "text-success" : "text-destructive"}`}>
-                {deltaUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                <span>{delta}</span>
-              </div>
-            )}
           </div>
-          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${t.icon} shadow-sm`}>
+          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tints[tint]} shadow-sm`}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function MiniStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "warn" | "success" }) {
-  const toneCls = tone === "warn" ? "text-destructive" : tone === "success" ? "text-success" : "text-foreground";
-  return (
-    <div className="flex flex-col px-5 py-4 first:rounded-l-xl last:rounded-r-xl">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className={`mt-1 text-lg font-semibold ${toneCls}`}>{value}</span>
-    </div>
   );
 }
 
@@ -87,26 +53,60 @@ const quickActions = [
 ];
 
 function Dashboard() {
-  const lastName = SCHOOL.principal.split(" ").slice(-1)[0];
-  const attendanceRate = ((STATS.presentToday / (STATS.presentToday + STATS.absentToday)) * 100).toFixed(1);
-  const [today, setToday] = useState("");
+  const { profile } = useSchoolProfile();
+  const schoolId = profile?.schoolId ?? null;
+  const today = new Date().toISOString().slice(0, 10);
+  const [todayLabel, setTodayLabel] = useState("");
   useEffect(() => {
-    setToday(new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long" }));
+    setTodayLabel(new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long" }));
   }, []);
+
+  const counts = useQuery({
+    queryKey: ["dashboard-counts", schoolId],
+    enabled: !!schoolId,
+    queryFn: async () => {
+      const now = new Date();
+      const [students, teachers, todayAtt, monthPays, exams, recents] = await Promise.all([
+        supabase.from("students").select("id, monthly_fee", { count: "exact" }).eq("status", "active"),
+        supabase.from("teachers").select("id", { count: "exact", head: true }),
+        supabase.from("attendance").select("status").eq("date", today),
+        supabase.from("fee_payments").select("amount_paid").eq("year", now.getFullYear()).eq("month", now.getMonth() + 1),
+        supabase.from("exams").select("id", { count: "exact", head: true }).gte("start_date", today),
+        supabase.from("students").select("id, name, admission_no, father_name, monthly_fee, classes(name), sections(name)").order("created_at", { ascending: false }).limit(5),
+      ]);
+      const studentCount = students.count ?? 0;
+      const totalDue = (students.data ?? []).reduce((a: number, s: any) => a + Number(s.monthly_fee ?? 0), 0);
+      const present = (todayAtt.data ?? []).filter((a: any) => a.status === "present").length;
+      const totalMarked = (todayAtt.data ?? []).length;
+      const absent = totalMarked - present;
+      const collected = (monthPays.data ?? []).reduce((a: number, p: any) => a + Number(p.amount_paid), 0);
+      return {
+        studentCount,
+        teacherCount: teachers.count ?? 0,
+        present, absent, totalMarked,
+        collected, pending: Math.max(0, totalDue - collected),
+        upcomingExams: exams.count ?? 0,
+        recentAdmissions: recents.data ?? [],
+      };
+    },
+  });
+
+  const c = counts.data;
+  const attendanceRate = c && c.totalMarked > 0 ? ((c.present / c.totalMarked) * 100).toFixed(1) : "—";
+  const lastName = (profile?.fullName || "").split(" ").slice(-1)[0] || "there";
 
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/8 via-background to-[oklch(0.62_0.18_285)]/8 px-6 py-7 sm:px-8">
         <div className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-[oklch(0.62_0.18_285)]/15 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 min-h-[1rem]">{today}</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 min-h-[1rem]">{todayLabel}</p>
             <h1 className="text-3xl sm:text-[32px] font-bold tracking-tight leading-tight text-foreground">
               Assalam-o-Alaikum,{" "}
               <span className="bg-gradient-to-r from-primary to-[oklch(0.62_0.18_285)] bg-clip-text text-transparent">{lastName}</span>
             </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">Here's a snapshot of {SCHOOL.name} for today.</p>
+            <p className="mt-1.5 text-sm text-muted-foreground">Here's a snapshot of {profile?.schoolName ?? "your school"} for today.</p>
           </div>
           <Button asChild size="lg" className="shadow-glow">
             <Link to="/students"><UserPlus className="mr-1.5 h-4 w-4" /> New Admission</Link>
@@ -114,183 +114,62 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Primary KPIs — 4 cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Students" value={STATS.totalStudents.toLocaleString()} icon={Users} delta="+23 this month" deltaUp tint="primary" />
-        <StatCard label="Present Today" value={`${attendanceRate}%`} icon={UserCheck} delta={`${STATS.presentToday} of ${STATS.presentToday + STATS.absentToday}`} deltaUp tint="success" />
-        <StatCard label="Fees Collected" value={formatPKR(STATS.feesCollected)} icon={Wallet} delta="+8% vs last month" deltaUp tint="info" />
-        <StatCard label="Pending Dues" value={formatPKR(STATS.pendingFees)} icon={AlertCircle} delta="34 students" tint="warning" />
+        <StatCard label="Total Students" value={counts.isLoading ? "…" : String(c?.studentCount ?? 0)} icon={Users} tint="primary" />
+        <StatCard label="Present Today" value={counts.isLoading ? "…" : `${attendanceRate}${attendanceRate !== "—" ? "%" : ""}`} icon={UserCheck} tint="success" />
+        <StatCard label="Fees Collected" value={counts.isLoading ? "…" : formatPKR(c?.collected ?? 0)} icon={Wallet} tint="info" />
+        <StatCard label="Pending Dues" value={counts.isLoading ? "…" : formatPKR(c?.pending ?? 0)} icon={AlertCircle} tint="warning" />
       </div>
 
-      {/* Secondary stats — compact strip */}
       <Card>
         <CardContent className="p-0 grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
-          <MiniStat label="Teachers" value={STATS.totalTeachers.toString()} />
-          <MiniStat label="New Admissions" value={STATS.recentAdmissions.toString()} tone="success" />
-          <MiniStat label="Absent Today" value={STATS.absentToday.toString()} tone="warn" />
-          <MiniStat label="Upcoming Exams" value={STATS.upcomingExams.toString()} />
+          <div className="flex flex-col px-5 py-4"><span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Teachers</span><span className="mt-1 text-lg font-semibold">{c?.teacherCount ?? 0}</span></div>
+          <div className="flex flex-col px-5 py-4"><span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Marked Today</span><span className="mt-1 text-lg font-semibold">{c?.totalMarked ?? 0}</span></div>
+          <div className="flex flex-col px-5 py-4"><span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Absent Today</span><span className="mt-1 text-lg font-semibold text-destructive">{c?.absent ?? 0}</span></div>
+          <div className="flex flex-col px-5 py-4"><span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Upcoming Exams</span><span className="mt-1 text-lg font-semibold">{c?.upcomingExams ?? 0}</span></div>
         </CardContent>
       </Card>
 
-      {/* Charts */}
-      <div className="grid lg:grid-cols-5 gap-4">
-        <Card className="lg:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Attendance this week</CardTitle>
-            <CardDescription>Present vs absent students per day</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={ATTENDANCE_WEEK} barGap={4} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="day" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-popover)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 10,
-                    fontSize: 12,
-                    boxShadow: "var(--shadow-card)",
-                  }}
-                />
-                <Bar dataKey="present" name="Present" fill="var(--color-chart-2)" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="absent" name="Absent" fill="var(--color-chart-5)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+      <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Fee collection trend</CardTitle>
-            <CardDescription>Monthly totals this session</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={FEE_MONTHLY} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-popover)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 10,
-                    fontSize: 12,
-                    boxShadow: "var(--shadow-card)",
-                  }}
-                  formatter={(v: number) => formatPKR(v)}
-                />
-                <Line type="monotone" dataKey="amount" stroke="var(--color-chart-1)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tables row */}
-      <div className="grid lg:grid-cols-5 gap-4">
-        <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-base">Recent admissions</CardTitle>
               <CardDescription>Latest students enrolled</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild className="text-xs">
-              <Link to="/admissions">View all <ArrowRight className="ml-1 h-3 w-3" /></Link>
+              <Link to="/students">View all <ArrowRight className="ml-1 h-3 w-3" /></Link>
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Admission No</TableHead>
-                  <TableHead className="text-right">Monthly Fee</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {RECENT_ADMISSIONS.slice(0, 5).map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="text-xs bg-accent text-accent-foreground">
-                            {s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{s.name}</p>
-                          <p className="text-xs text-muted-foreground">s/o {s.fatherName}</p>
+            {(c?.recentAdmissions ?? []).length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-muted-foreground">No admissions yet. <Link to="/students" className="text-primary underline">Add your first student</Link>.</div>
+            ) : (
+              <Table>
+                <TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Class</TableHead><TableHead>Adm. No</TableHead><TableHead className="text-right">Monthly Fee</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(c?.recentAdmissions ?? []).map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-accent text-accent-foreground">{s.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}</AvatarFallback></Avatar>
+                          <div><p className="text-sm font-medium">{s.name}</p><p className="text-xs text-muted-foreground">s/o {s.father_name ?? "—"}</p></div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell><Badge variant="secondary" className="font-normal">Class {s.class}–{s.section}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground font-mono">{s.admissionNo}</TableCell>
-                    <TableCell className="text-right text-sm font-medium">{formatPKR(s.monthlyFee)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-base">Fee defaulters</CardTitle>
-              <CardDescription>Pending dues this month</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" asChild className="text-xs">
-              <Link to="/fees">All <ArrowRight className="ml-1 h-3 w-3" /></Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {FEE_DEFAULTERS.slice(0, 5).map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-3 px-6 py-3 hover:bg-muted/40 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs bg-destructive/10 text-destructive">
-                        {s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">Class {s.class}–{s.section} · {s.months} mo overdue</p>
-                    </div>
-                  </div>
-                  <p className="text-sm font-semibold text-destructive whitespace-nowrap">{formatPKR(s.pending)}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Upcoming exams + Quick actions */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-4 w-4 text-muted-foreground" /> Upcoming exams</CardTitle>
-            <CardDescription>Scheduled across classes</CardDescription>
-          </CardHeader>
-          <CardContent className="grid sm:grid-cols-2 gap-3">
-            {UPCOMING_EXAMS.map((e, i) => (
-              <div key={i} className="rounded-xl border border-border bg-muted/20 p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors">
-                <p className="text-sm font-semibold">{e.name}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Class {e.class} · {e.subjects} subjects</p>
-                <p className="mt-3 text-xs flex items-center gap-1 text-primary font-medium"><CalendarDays className="h-3 w-3" /> {e.date}</p>
-              </div>
-            ))}
+                      </TableCell>
+                      <TableCell>{s.classes?.name ? <Badge variant="secondary">Class {s.classes.name}{s.sections?.name ? `–${s.sections.name}` : ""}</Badge> : "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground font-mono">{s.admission_no}</TableCell>
+                      <TableCell className="text-right text-sm font-medium">{formatPKR(Number(s.monthly_fee ?? 0))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Quick actions</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-4 w-4 text-muted-foreground" /> Quick actions</CardTitle>
             <CardDescription>Common daily tasks</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -303,6 +182,10 @@ function Dashboard() {
                 </Link>
               </Button>
             ))}
+            <div className="mt-3 rounded-lg border border-border/60 p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground inline-flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Live data</p>
+              <p className="mt-1">All numbers above reflect real records from {profile?.schoolName ?? "your school"}.</p>
+            </div>
           </CardContent>
         </Card>
       </div>
