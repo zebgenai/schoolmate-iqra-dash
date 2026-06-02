@@ -44,13 +44,13 @@ function AuthPage() {
   const [suPw, setSuPw] = useState("");
   const [suSchool, setSuSchool] = useState("");
   const [suRole, setSuRole] = useState<"school_admin" | "teacher" | "accountant">("school_admin");
-  const [schools, setSchools] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [schoolName, setSchoolName] = useState("IQRA Smart School");
 
   useEffect(() => {
-    supabase.from("schools").select("id, name, code").order("name").then(({ data }) => {
-      if (data) {
-        setSchools(data);
-        if (!suSchool && data[0]) setSuSchool(data[0].id);
+    supabase.from("schools").select("id, name").order("created_at").limit(1).then(({ data }) => {
+      if (data && data[0]) {
+        setSuSchool(data[0].id);
+        setSchoolName(data[0].name);
       }
     });
   }, []);
